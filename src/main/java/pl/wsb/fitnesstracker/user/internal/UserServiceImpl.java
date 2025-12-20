@@ -6,6 +6,9 @@ import pl.wsb.fitnesstracker.user.api.User;
 import pl.wsb.fitnesstracker.user.api.UserProvider;
 import pl.wsb.fitnesstracker.user.api.UserService;
 
+import pl.wsb.fitnesstracker.user.api.UserNotFoundException;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +28,32 @@ class UserServiceImpl implements UserService, UserProvider {
             throw new IllegalArgumentException("User has already DB ID, update is not permitted!");
         }
         return userRepository.save(user);
+    }
+
+    @Override
+    public void deleteUser(final Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new UserNotFoundException(id);
+        }
+        userRepository.deleteById(id);
+    }
+
+    @Override
+    public User updateUser(final User user) {
+        if (user.getId() == null) {
+            throw new IllegalArgumentException("User has no DB ID, create is not permitted!");
+        }
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<User> searchUsersByEmail(final String email) {
+        return userRepository.findByEmailContainingIgnoreCase(email);
+    }
+
+    @Override
+    public List<User> searchUsersByAge(final int age) {
+        return userRepository.findUsersOlderThan(age);
     }
 
     @Override

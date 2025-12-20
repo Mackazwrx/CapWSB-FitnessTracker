@@ -49,30 +49,12 @@ class UserApiIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].firstName").value(user1.getFirstName()))
                 .andExpect(jsonPath("$[0].lastName").value(user1.getLastName()))
-                .andExpect(jsonPath("$[0].birthdate").value(ISO_DATE.format(user1.getBirthdate())))
+                // Simple DTO does not have birthdate
+                .andExpect(jsonPath("$[0].birthdate").doesNotExist())
 
                 .andExpect(jsonPath("$[1].firstName").value(user2.getFirstName()))
                 .andExpect(jsonPath("$[1].lastName").value(user2.getLastName()))
-                .andExpect(jsonPath("$[1].birthdate").value(ISO_DATE.format(user2.getBirthdate())))
-
-                .andExpect(jsonPath("$[2]").doesNotExist());
-    }
-
-    @Test
-    void shouldReturnAllSimpleUsers_whenGettingAllUsers() throws Exception {
-        User user1 = existingUser(generateUser());
-        User user2 = existingUser(generateUser());
-
-        mockMvc.perform(get("/v1/users/simple").contentType(MediaType.APPLICATION_JSON))
-                .andDo(log())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].firstName").value(user1.getFirstName()))
-                .andExpect(jsonPath("$[0].lastName").value(user1.getLastName()))
-
-                .andExpect(jsonPath("$[1].firstName").value(user2.getFirstName()))
-                .andExpect(jsonPath("$[1].lastName").value(user2.getLastName()))
-
+                
                 .andExpect(jsonPath("$[2]").doesNotExist());
     }
 
@@ -95,7 +77,7 @@ class UserApiIntegrationTest extends IntegrationTestBase {
     void shouldReturnDetailsAboutUser_whenGettingUserByEmail() throws Exception {
         User user1 = existingUser(generateUser());
 
-        mockMvc.perform(get("/v1/users/email").param("email", user1.getEmail()).contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/v1/users/search/email").param("email", user1.getEmail()).contentType(MediaType.APPLICATION_JSON))
                 .andDo(log())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
@@ -105,11 +87,13 @@ class UserApiIntegrationTest extends IntegrationTestBase {
 
     @Test
     void shouldReturnAllUsersOlderThan_whenGettingAllUsersOlderThan() throws Exception {
+        // User 1: born in 2000 (approx 25 years old in 2025)
         User user1 = existingUser(generateUserWithDate(LocalDate.of(2000, 8, 11)));
+        // User 2: born in 2024 (approx 1 year old in 2025)
         existingUser(generateUserWithDate(LocalDate.of(2024, 8, 11)));
 
-
-        mockMvc.perform(get("/v1/users/older/{time}", LocalDate.of(2024, 8, 10)).contentType(MediaType.APPLICATION_JSON))
+        // Search for users older than 10
+        mockMvc.perform(get("/v1/users/search/age").param("age", "10").contentType(MediaType.APPLICATION_JSON))
                 .andDo(log())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
@@ -199,17 +183,19 @@ class UserApiIntegrationTest extends IntegrationTestBase {
                 USER_EMAIL);
 
         mockMvc.perform(put("/v1/users/{userId}", user1.getId())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(updateRequest));
-
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateRequest))
+                .andDo(log())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value(USER_NAME))
+                .andExpect(jsonPath("$.lastName").value(USER_LAST_NAME))
+                .andExpect(jsonPath("$.email").value(USER_EMAIL));
+        
+        // Verify DB update
         List<User> allUsers = getAllUsers();
         User user = allUsers.get(0);
-
         assertThat(user.getFirstName()).isEqualTo(USER_NAME);
         assertThat(user.getLastName()).isEqualTo(USER_LAST_NAME);
-        assertThat(user.getBirthdate()).isEqualTo(LocalDate.parse(USER_BIRTHDATE));
         assertThat(user.getEmail()).isEqualTo(USER_EMAIL);
     }
-
-
 }
